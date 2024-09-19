@@ -55,10 +55,10 @@ pub fn main() !void {
             for (0..cap) |i| {
                 kvs[i][0] = str_keys[i];
             }
-            var timer = try std.time.Timer.start();
             const Map = std.StaticStringMap(void);
             var map = try Map.init(kvs, alloc);
             defer map.deinit(alloc);
+            var timer = try std.time.Timer.start();
             for (0..cap) |i| {
                 std.mem.doNotOptimizeAway(map.get(str_keys[i]));
             }
@@ -68,10 +68,10 @@ pub fn main() !void {
         const this_cap = @floor(cap * 1.5); //cap * 2;
 
         if (kinds.contains(.this_static_string_map)) {
-            var timer = try std.time.Timer.start();
             const Map = static_map.StaticStringSet(this_cap);
             var map = Map.init();
             for (str_keys[0..cap]) |k| map.putNoClobber(k, {});
+            var timer = try std.time.Timer.start();
             for (0..cap) |i| {
                 std.mem.doNotOptimizeAway(map.get(str_keys[i]));
             }
@@ -79,10 +79,10 @@ pub fn main() !void {
         }
 
         if (kinds.contains(.this_static_string_map2)) {
-            var timer = try std.time.Timer.start();
             const Map = static_map.StaticMap([]const u8, void, this_cap, static_map.StringContext2);
             var map = Map.init();
             for (str_keys[0..cap]) |k| map.putNoClobber(k, {});
+            var timer = try std.time.Timer.start();
             for (0..cap) |i| {
                 std.mem.doNotOptimizeAway(map.get(str_keys[i]));
             }
