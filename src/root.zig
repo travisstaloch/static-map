@@ -163,12 +163,14 @@ pub fn StaticMap(
             gop.value_ptr.* = value;
         }
 
+        /// asserts that the map is not full
         pub fn putAssumeCapacity(map: *Self, key: Key, value: Value) void {
             const gop = map.getOrPut(key);
             assert(gop.status != .map_full);
             gop.value_ptr.* = value;
         }
 
+        /// asserts that the key is new
         pub fn putNoClobber(map: *Self, key: Key, value: Value) void {
             const gop = map.getOrPut(key);
             assert(gop.status == .new);

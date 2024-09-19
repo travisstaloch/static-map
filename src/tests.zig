@@ -135,3 +135,36 @@ test "iterator" {
         try testing.expectEqual(null, iter.nextPtr());
     }
 }
+
+test "usage" {
+    // const static_map = @import("static-map");
+    // init()
+    const Map = static_map.StaticStringMap(u8, 16);
+    var map = Map.init();
+    // put()/get()
+    try map.put("abc", 1);
+    try std.testing.expectEqual(1, map.get("abc"));
+    // getOrPut()
+    const gop = map.getOrPut("abc");
+    try std.testing.expectEqual(gop.status, .existing);
+    gop.value_ptr.* = 2;
+    try std.testing.expectEqual(2, map.get("abc"));
+    // putAssumeCapacity()
+    map.putAssumeCapacity("def", 3);
+    try std.testing.expectEqual(3, map.get("def"));
+    // putNoClobber()
+    map.putNoClobber("ghi", 4);
+    try std.testing.expectEqual(4, map.get("ghi"));
+    // getPtr()
+    map.getPtr("def").?.* = 5;
+    try std.testing.expectEqual(5, map.get("def"));
+    // count()
+    try std.testing.expectEqual(3, map.count());
+    // iterator()
+    var iter = map.iterator();
+    var count: u8 = 0;
+    while (iter.next()) |kv| : (count += 1) {
+        try std.io.null_writer.print("{s}: {}", .{ kv.key, kv.value });
+    }
+    try std.testing.expectEqual(map.count(), count);
+}
