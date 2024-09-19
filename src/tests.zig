@@ -141,8 +141,9 @@ test "usage" {
     // init()
     const Map = static_map.StaticStringMap(u8, 16);
     var map = Map.init();
-    // put()/get()
+    // put()/get()/contains()
     try map.put("abc", 1);
+    try std.testing.expect(map.contains("abc"));
     try std.testing.expectEqual(1, map.get("abc"));
     // getOrPut()
     const gop = map.getOrPut("abc");
@@ -167,4 +168,46 @@ test "usage" {
         try std.io.null_writer.print("{s}: {}", .{ kv.key, kv.value });
     }
     try std.testing.expectEqual(map.count(), count);
+}
+
+test "initComptime - Map" {
+    const Map = static_map.StaticStringMap(u8, 16);
+    const map_kvs = .{ .{ "foo", 1 }, .{ "bar", 2 } };
+    { // const
+        const map = Map.initComptime(map_kvs);
+        try std.testing.expectEqual(2, map.count());
+        try std.testing.expectEqual(1, map.get("foo"));
+        try std.testing.expectEqual(2, map.get("bar"));
+    }
+    {
+        const map = Map.initComptimeContext(map_kvs, .{});
+        try std.testing.expectEqual(2, map.count());
+        try std.testing.expectEqual(1, map.get("foo"));
+        try std.testing.expectEqual(2, map.get("bar"));
+    }
+    { // var
+        var map = Map.initComptime(map_kvs);
+        map.putNoClobber("baz", 1);
+        try std.testing.expectEqual(3, map.count());
+    }
+}
+
+test "initComptime - Set" {
+    const Set = static_map.StaticStringSet(16);
+    const set_kvs1 = .{ .{"foo"}, .{"bar"} };
+    const set_kvs2 = .{ "foo", "bar" };
+    inline for (.{ set_kvs1, set_kvs2 }) |set_kvs| {
+        {
+            const set = Set.initComptime(set_kvs);
+            try std.testing.expectEqual(2, set.count());
+            try std.testing.expectEqual({}, set.get("foo"));
+            try std.testing.expectEqual({}, set.get("bar"));
+        }
+        {
+            const set = Set.initComptimeContext(set_kvs, .{});
+            try std.testing.expectEqual(2, set.count());
+            try std.testing.expectEqual({}, set.get("foo"));
+            try std.testing.expectEqual({}, set.get("bar"));
+        }
+    }
 }

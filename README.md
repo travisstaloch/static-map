@@ -18,8 +18,9 @@ test "usage" {
     // init()
     const Map = static_map.StaticStringMap(u8, 16);
     var map = Map.init();
-    // put()/get()
+    // put()/get()/contains()
     try map.put("abc", 1);
+    try std.testing.expect(map.contains("abc"));
     try std.testing.expectEqual(1, map.get("abc"));
     // getOrPut()
     const gop = map.getOrPut("abc");

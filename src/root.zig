@@ -74,26 +74,45 @@ pub fn StaticMap(
         const BitSet = std.StaticBitSet(capacity);
         const Self = @This();
         const is_pow2 = std.math.isPowerOfTwo(capacity);
+        const is_ctx_zero_sized = @sizeOf(Context) == 0;
+        const is_value_zero_sized = @sizeOf(Value) == 0;
 
         pub const Key = K;
         pub const Value = V;
 
         pub fn init() Self {
-            return .{
-                .keys = undefined,
-                .values = undefined,
-                .bitset = BitSet.initEmpty(),
-                .ctx = undefined,
-            };
+            assert(is_ctx_zero_sized); // use initContext();
+            return initContext(undefined);
         }
 
-        pub fn initCtx(ctx: Context) Self {
+        pub fn initContext(ctx: Context) Self {
             return .{
                 .keys = undefined,
                 .values = undefined,
                 .bitset = BitSet.initEmpty(),
                 .ctx = ctx,
             };
+        }
+
+        pub inline fn initComptime(comptime kvs_list: anytype) Self {
+            assert(is_ctx_zero_sized); // use initComptimeContext();
+            return initComptimeContext(kvs_list, undefined);
+        }
+
+        pub inline fn initComptimeContext(comptime kvs_list: anytype, ctx: Context) Self {
+            comptime {
+                var map = initContext(ctx);
+                for (0..kvs_list.len) |i| {
+                    const key = switch (@typeInfo(@TypeOf(kvs_list[i]))) {
+                        .@"struct" => kvs_list[i].@"0",
+                        else => kvs_list[i],
+                    };
+                    const gop = map.getOrPut(key);
+                    assert(gop.status == .new);
+                    if (!is_value_zero_sized) gop.value_ptr.* = kvs_list[i].@"1";
+                }
+                return map;
+            }
         }
 
         pub const GetOrPutResult = struct {
@@ -179,7 +198,7 @@ pub fn StaticMap(
 
         /// return the index where `key` is found in `map.keys` or else null.
         /// this index can also be used for `map.values`.
-        pub fn getIndex(map: *Self, key: Key) ?u32 {
+        pub fn getIndex(map: *const Self, key: Key) ?u32 {
             var h = if (is_pow2)
                 map.ctx.hash(key) & (capacity - 1)
             else
@@ -206,8 +225,12 @@ pub fn StaticMap(
         }
 
         /// return a value for `key` or else null
-        pub fn get(map: *Self, key: Key) ?Value {
+        pub fn get(map: *const Self, key: Key) ?Value {
             return if (map.getIndex(key)) |i| map.values[i] else null;
+        }
+
+        pub fn contains(map: *const Self, key: Key) bool {
+            return (map.getIndex(key) != null);
         }
 
         /// returns the removed value if `key` is found otherwise null.
@@ -233,7 +256,7 @@ pub fn StaticMap(
         }
 
         pub fn rehash(map: *Self) void {
-            var m = initCtx(map.ctx);
+            var m = initContext(map.ctx);
             var iter = map.bitset.iterator(.{});
             while (iter.next()) |i| {
                 const gop = m.getOrPut(map.keys[i]);
@@ -243,7 +266,7 @@ pub fn StaticMap(
             map.* = m;
         }
 
-        pub fn count(map: *Self) u32 {
+        pub fn count(map: *const Self) u32 {
             return @truncate(map.bitset.count());
         }
 
