@@ -30,18 +30,18 @@ pub fn eqlString1(a: []const u8, b: []const u8) bool {
 pub const StringContext2 = std.array_hash_map.StringContext;
 
 pub fn StaticStringMap(comptime V: type, comptime capacity: u32) type {
-    return StaticStringMapCustom(V, capacity, StringContext1);
+    return StaticStringMapContext(V, capacity, StringContext1);
 }
 
-pub fn StaticStringMapCustom(comptime V: type, comptime capacity: u32, comptime Context: type) type {
+pub fn StaticStringMapContext(comptime V: type, comptime capacity: u32, comptime Context: type) type {
     return StaticMap([]const u8, V, capacity, Context);
 }
 
 pub fn StaticStringSet(comptime capacity: u32) type {
-    return StaticStringSetCustom(capacity, StringContext1);
+    return StaticStringSetContext(capacity, StringContext1);
 }
 
-pub fn StaticStringSetCustom(comptime capacity: u32, comptime Context: type) type {
+pub fn StaticStringSetContext(comptime capacity: u32, comptime Context: type) type {
     return StaticMap([]const u8, void, capacity, Context);
 }
 

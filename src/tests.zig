@@ -147,7 +147,7 @@ test "usage" {
     try std.testing.expectEqual(1, map.get("abc"));
     // getOrPut()
     const gop = map.getOrPut("abc");
-    try std.testing.expectEqual(gop.status, .existing);
+    try std.testing.expectEqual(.existing, gop.status);
     gop.value_ptr.* = 2;
     try std.testing.expectEqual(2, map.get("abc"));
     // putAssumeCapacity()
