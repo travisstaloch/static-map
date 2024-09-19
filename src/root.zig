@@ -54,7 +54,8 @@ pub fn AutoStaticSet(comptime K: type, comptime capacity: u32) type {
 }
 
 /// A key, value map backed by static key and value arrays with a bitset.
-/// `capacity` is adjusted to the next power of 2.
+/// `capacity` should be chosen so that the map will be around 50% to 75% full.
+/// `capacity` can be any number and does NOT need to be a power of 2.
 ///
 /// This API is somewhat similar to std.ArrayHashMap and can use
 /// `std.array_hash_map.AutoContext(K)`
@@ -103,7 +104,16 @@ pub fn StaticMap(
             key_ptr: *Key,
             index: u32,
 
-            pub const Status = enum { new, existing, map_full };
+            pub const Status = enum {
+                /// the key was not found and has been added.  `value_ptr`
+                /// points to an undefined value.
+                new,
+                /// the key was found.  `value_ptr` points to an existing value.
+                existing,
+                /// the map is full and the key has not been added.
+                /// `value_ptr`, `key_ptr` and `index` are undefined.
+                map_full,
+            };
         };
 
         /// insert `key` into first available slot if not found.
@@ -207,6 +217,7 @@ pub fn StaticMap(
                 map.keys[i] = undefined;
                 const v = map.values[i];
                 map.values[i] = undefined;
+                // TODO skip rehash() if no indices will change
                 map.rehash();
                 return v;
             }
