@@ -81,7 +81,7 @@ pub fn StaticMap(
         pub const Value = V;
 
         pub fn init() Self {
-            assert(is_ctx_zero_sized); // use initContext();
+            assert(is_ctx_zero_sized); // if assert fails use initContext();
             return initContext(undefined);
         }
 
@@ -95,12 +95,14 @@ pub fn StaticMap(
         }
 
         pub inline fn initComptime(comptime kvs_list: anytype) Self {
-            assert(is_ctx_zero_sized); // use initComptimeContext();
+            assert(is_ctx_zero_sized); // if assert fails use initComptimeContext();
             return initComptimeContext(kvs_list, undefined);
         }
 
         pub inline fn initComptimeContext(comptime kvs_list: anytype, ctx: Context) Self {
             comptime {
+                // a linear bound should be fine
+                @setEvalBranchQuota(40 * kvs_list.len);
                 var map = initContext(ctx);
                 for (0..kvs_list.len) |i| {
                     const key = switch (@typeInfo(@TypeOf(kvs_list[i]))) {

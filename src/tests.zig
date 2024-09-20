@@ -39,26 +39,26 @@ test {
     var map = Map.init();
     for (keys, values) |k, v| {
         const gop = map.getOrPut(k);
-        try std.testing.expectEqual(gop.status, .new);
+        try testing.expectEqual(gop.status, .new);
         gop.value_ptr.* = v;
     }
     // check all keys and values present
     for (keys, values) |k, v| {
         const idx = map.getIndex(k) orelse return error.Unexpected;
-        try std.testing.expectEqual(v, map.values[idx]);
-        try std.testing.expectEqual(v, map.get(k).?);
-        try std.testing.expectEqual(v, map.getPtr(k).?.*);
+        try testing.expectEqual(v, map.values[idx]);
+        try testing.expectEqual(v, map.get(k).?);
+        try testing.expectEqual(v, map.getPtr(k).?.*);
     }
     // remove all keys and verify
     for (keys, values) |k, v| {
         // std.debug.print("{s}\n", .{k});
         const removed = map.remove(k) orelse return error.Unexpected;
-        try std.testing.expectEqual(v, removed);
+        try testing.expectEqual(v, removed);
     }
     for (keys) |k| {
-        try std.testing.expect(map.get(k) == null);
+        try testing.expect(map.get(k) == null);
     }
-    try std.testing.expectEqual(0, map.count());
+    try testing.expectEqual(0, map.count());
 }
 
 fn testType(comptime Map: type, keys: []const Map.Key, values: []const Map.Value) !void {
@@ -80,9 +80,9 @@ fn testType(comptime Map: type, keys: []const Map.Key, values: []const Map.Value
             try testing.expectEqual(values[i], v);
     }
     for (keys) |k| {
-        try std.testing.expect(map.get(k) == null);
+        try testing.expect(map.get(k) == null);
     }
-    try std.testing.expectEqual(0, map.count());
+    try testing.expectEqual(0, map.count());
 }
 
 test "various map types, random keys" {
@@ -143,31 +143,31 @@ test "usage" {
     var map = Map.init();
     // put()/get()/contains()
     try map.put("abc", 1);
-    try std.testing.expect(map.contains("abc"));
-    try std.testing.expectEqual(1, map.get("abc"));
+    try testing.expect(map.contains("abc"));
+    try testing.expectEqual(1, map.get("abc"));
     // getOrPut()
     const gop = map.getOrPut("abc");
-    try std.testing.expectEqual(.existing, gop.status);
+    try testing.expectEqual(.existing, gop.status);
     gop.value_ptr.* = 2;
-    try std.testing.expectEqual(2, map.get("abc"));
+    try testing.expectEqual(2, map.get("abc"));
     // putAssumeCapacity()
     map.putAssumeCapacity("def", 3);
-    try std.testing.expectEqual(3, map.get("def"));
+    try testing.expectEqual(3, map.get("def"));
     // putNoClobber()
     map.putNoClobber("ghi", 4);
-    try std.testing.expectEqual(4, map.get("ghi"));
+    try testing.expectEqual(4, map.get("ghi"));
     // getPtr()
     map.getPtr("def").?.* = 5;
-    try std.testing.expectEqual(5, map.get("def"));
+    try testing.expectEqual(5, map.get("def"));
     // count()
-    try std.testing.expectEqual(3, map.count());
+    try testing.expectEqual(3, map.count());
     // iterator()
     var iter = map.iterator();
     var count: u8 = 0;
     while (iter.next()) |kv| : (count += 1) {
         try std.io.null_writer.print("{s}: {}", .{ kv.key, kv.value });
     }
-    try std.testing.expectEqual(map.count(), count);
+    try testing.expectEqual(map.count(), count);
 }
 
 test "initComptime - Map" {
@@ -175,20 +175,20 @@ test "initComptime - Map" {
     const map_kvs = .{ .{ "foo", 1 }, .{ "bar", 2 } };
     { // const
         const map = Map.initComptime(map_kvs);
-        try std.testing.expectEqual(2, map.count());
-        try std.testing.expectEqual(1, map.get("foo"));
-        try std.testing.expectEqual(2, map.get("bar"));
+        try testing.expectEqual(2, map.count());
+        try testing.expectEqual(1, map.get("foo"));
+        try testing.expectEqual(2, map.get("bar"));
     }
     {
         const map = Map.initComptimeContext(map_kvs, .{});
-        try std.testing.expectEqual(2, map.count());
-        try std.testing.expectEqual(1, map.get("foo"));
-        try std.testing.expectEqual(2, map.get("bar"));
+        try testing.expectEqual(2, map.count());
+        try testing.expectEqual(1, map.get("foo"));
+        try testing.expectEqual(2, map.get("bar"));
     }
     { // var
         var map = Map.initComptime(map_kvs);
         map.putNoClobber("baz", 1);
-        try std.testing.expectEqual(3, map.count());
+        try testing.expectEqual(3, map.count());
     }
 }
 
@@ -199,15 +199,30 @@ test "initComptime - Set" {
     inline for (.{ set_kvs1, set_kvs2 }) |set_kvs| {
         {
             const set = Set.initComptime(set_kvs);
-            try std.testing.expectEqual(2, set.count());
-            try std.testing.expectEqual({}, set.get("foo"));
-            try std.testing.expectEqual({}, set.get("bar"));
+            try testing.expectEqual(2, set.count());
+            try testing.expectEqual({}, set.get("foo"));
+            try testing.expectEqual({}, set.get("bar"));
         }
         {
             const set = Set.initComptimeContext(set_kvs, .{});
-            try std.testing.expectEqual(2, set.count());
-            try std.testing.expectEqual({}, set.get("foo"));
-            try std.testing.expectEqual({}, set.get("bar"));
+            try testing.expectEqual(2, set.count());
+            try testing.expectEqual({}, set.get("foo"));
+            try testing.expectEqual({}, set.get("bar"));
         }
+    }
+}
+
+test "initComptime - many keys don't exceed @evalBranchQuota" {
+    const keys = comptime std.zig.Token.keywords.keys();
+    const values = comptime std.zig.Token.keywords.values();
+    const cap: usize = @intFromFloat(@floor(@as(comptime_float, @floatFromInt(keys.len)) * 1.6));
+    const Map = static_map.StaticStringMap(std.zig.Token.Tag, cap);
+    comptime var kvs: [keys.len]struct { Map.Key, Map.Value } = undefined;
+    comptime for (0..kvs.len) |i| {
+        kvs[i] = .{ keys[i], values[i] };
+    };
+    const keywords = Map.initComptime(kvs);
+    for (keys, values) |k, v| {
+        try testing.expectEqual(v, keywords.get(k));
     }
 }
