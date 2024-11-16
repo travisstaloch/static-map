@@ -9,7 +9,7 @@ pub fn build(b: *std.Build) void {
 
     const bench = b.addExecutable(.{
         .name = "bench",
-        .root_source_file = b.path("src/bench.zig"),
+        .root_source_file = b.path(b.option([]const u8, "bench-file", "benchmark file") orelse "src/bench.zig"),
         .target = target,
         .optimize = optimize,
     });
