@@ -1,6 +1,7 @@
 const std = @import("std");
 const mem = std.mem;
 const assert = std.debug.assert;
+pub const StringContext2 = std.array_hash_map.StringContext;
 
 pub const StringContext1 = struct {
     pub fn hash(_: StringContext1, s: []const u8) u32 {
@@ -26,8 +27,6 @@ pub fn hashString1(s: []const u8) u32 {
 pub fn eqlString1(a: []const u8, b: []const u8) bool {
     return mem.eql(u8, a, b);
 }
-
-pub const StringContext2 = std.array_hash_map.StringContext;
 
 pub fn StaticStringMap(comptime V: type, comptime capacity: u32) type {
     return StaticStringMapContext(V, capacity, StringContext1);
@@ -95,14 +94,21 @@ pub fn StaticMap(
         }
 
         pub inline fn initComptime(comptime kvs_list: anytype) Self {
-            assert(is_ctx_zero_sized); // if assert fails use initComptimeContext();
-            return initComptimeContext(kvs_list, undefined);
+            comptime {
+                assert(is_ctx_zero_sized); // if assert fails use initComptimeContext();
+                return initComptimeContext(kvs_list, undefined);
+            }
         }
 
         pub inline fn initComptimeContext(comptime kvs_list: anytype, ctx: Context) Self {
             comptime {
                 // a linear bound should be fine
-                @setEvalBranchQuota(40 * kvs_list.len);
+                assert(capacity >= kvs_list.len);
+                const capf: f32 = @floatFromInt(capacity);
+                const lenf: f32 = @floatFromInt(kvs_list.len);
+                const ratio = capf / lenf;
+                const quota = 50 * std.math.pow(f32, lenf, ratio);
+                @setEvalBranchQuota(@intFromFloat(quota));
                 var map = initContext(ctx);
                 for (0..kvs_list.len) |i| {
                     const key = switch (@typeInfo(@TypeOf(kvs_list[i]))) {
