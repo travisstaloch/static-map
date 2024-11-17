@@ -174,19 +174,19 @@ test "initComptime - Map" {
     const Map = static_map.StaticStringMap(u8, 16);
     const map_kvs = .{ .{ "foo", 1 }, .{ "bar", 2 } };
     { // const
-        const map = Map.initComptime(map_kvs);
+        const map = Map.initComptime(map_kvs, .{});
         try testing.expectEqual(2, map.count());
         try testing.expectEqual(1, map.get("foo"));
         try testing.expectEqual(2, map.get("bar"));
     }
     {
-        const map = Map.initComptimeContext(map_kvs, .{});
+        const map = Map.initComptimeContext(map_kvs, .{}, .{});
         try testing.expectEqual(2, map.count());
         try testing.expectEqual(1, map.get("foo"));
         try testing.expectEqual(2, map.get("bar"));
     }
     { // var
-        var map = Map.initComptime(map_kvs);
+        var map = Map.initComptime(map_kvs, .{});
         map.putNoClobber("baz", 1);
         try testing.expectEqual(3, map.count());
     }
@@ -198,13 +198,13 @@ test "initComptime - Set" {
     const set_kvs2 = .{ "foo", "bar" };
     inline for (.{ set_kvs1, set_kvs2 }) |set_kvs| {
         {
-            const set = Set.initComptime(set_kvs);
+            const set = Set.initComptime(set_kvs, .{});
             try testing.expectEqual(2, set.count());
             try testing.expectEqual({}, set.get("foo"));
             try testing.expectEqual({}, set.get("bar"));
         }
         {
-            const set = Set.initComptimeContext(set_kvs, .{});
+            const set = Set.initComptimeContext(set_kvs, .{}, .{});
             try testing.expectEqual(2, set.count());
             try testing.expectEqual({}, set.get("foo"));
             try testing.expectEqual({}, set.get("bar"));
@@ -221,7 +221,7 @@ test "initComptime - many keys don't exceed @evalBranchQuota" {
     comptime for (0..kvs.len) |i| {
         kvs[i] = .{ keys[i], values[i] };
     };
-    const keywords = Map.initComptime(kvs);
+    const keywords = Map.initComptime(kvs, .{ .eval_branch_quota = 2000 });
     for (keys, values) |k, v| {
         try testing.expectEqual(v, keywords.get(k));
     }

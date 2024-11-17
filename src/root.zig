@@ -52,6 +52,8 @@ pub fn AutoStaticSet(comptime K: type, comptime capacity: u32) type {
     return StaticMap(K, void, capacity, std.array_hash_map.AutoContext(K));
 }
 
+pub const Options = struct { eval_branch_quota: u32 = 1000 };
+
 /// A key, value map backed by static key and value arrays with a bitset.
 /// `capacity` should be chosen so that the map will be around 50% to 75% full.
 /// `capacity` can be any number and does NOT need to be a power of 2.
@@ -93,22 +95,16 @@ pub fn StaticMap(
             };
         }
 
-        pub inline fn initComptime(comptime kvs_list: anytype) Self {
+        pub inline fn initComptime(comptime kvs_list: anytype, comptime options: Options) Self {
             comptime {
                 assert(is_ctx_zero_sized); // if assert fails use initComptimeContext();
-                return initComptimeContext(kvs_list, undefined);
+                return initComptimeContext(kvs_list, undefined, options);
             }
         }
 
-        pub inline fn initComptimeContext(comptime kvs_list: anytype, ctx: Context) Self {
+        pub inline fn initComptimeContext(comptime kvs_list: anytype, ctx: Context, comptime options: Options) Self {
             comptime {
-                // a linear bound should be fine
-                assert(capacity >= kvs_list.len);
-                const capf: f32 = @floatFromInt(capacity);
-                const lenf: f32 = @floatFromInt(kvs_list.len);
-                const ratio = capf / lenf;
-                const quota = 50 * std.math.pow(f32, lenf, ratio);
-                @setEvalBranchQuota(@intFromFloat(quota));
+                @setEvalBranchQuota(options.eval_branch_quota);
                 var map = initContext(ctx);
                 for (0..kvs_list.len) |i| {
                     const key = switch (@typeInfo(@TypeOf(kvs_list[i]))) {
