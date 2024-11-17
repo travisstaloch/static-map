@@ -6,9 +6,16 @@ const static_map = @import("static-map");
 
 const MapKind = enum {
     std_static_string_map,
-    this_static_string_map,
-    this_static_string_map2,
+    static_map,
+    static_map_case_insensitive,
     squeek502_hand_rolled,
+    const len = blk: {
+        var l: usize = 0;
+        for (@typeInfo(MapKind).@"enum".fields) |f| {
+            l = @max(l, f.name.len);
+        }
+        break :blk l;
+    };
 };
 
 pub fn main() !void {
@@ -26,67 +33,97 @@ pub fn main() !void {
         kinds.insert(std.meta.stringToEnum(MapKind, arg) orelse
             return error.InvalidModeArg);
     }
-    const iters = .{100_000};
-    const alphabet = "abcdefghijklmnopqrstuvwxyz";
+    const alphabet = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ";
+    const MapCaseInsensitive = static_map.StaticMap([]const u8, Country, alpha2_codes.len * 3, struct {
+        pub fn hash(_: @This(), k: []const u8) u32 {
+            std.debug.assert(k.len == 2);
+            const lowers: [2]u8 = .{
+                (k[0] | 32),
+                (k[1] | 32),
+            };
+            return @as(u16, @bitCast(lowers));
+        }
+        pub fn eql(_: @This(), a: []const u8, b: []const u8, b_idx: usize) bool {
+            _ = b_idx;
+            return hash(undefined, a) == hash(undefined, b);
+        }
+    });
 
-    try std.io.getStdOut().writer().writeAll("iters   map                     time(ns)\n--------\n");
+    const iterations = 100_000;
+    const map_insensitive = MapCaseInsensitive.initComptime(alpha2_codes, .{ .eval_branch_quota = 5000 });
+    var buf: [2]u8 = undefined;
+    const validate_maps = false;
+    if (validate_maps) {
+        for (0..iterations) |_| {
+            buf[0] = alphabet[random.intRangeLessThan(u8, 0, alphabet.len)];
+            buf[1] = alphabet[random.intRangeLessThan(u8, 0, alphabet.len)];
+            const expected = Country.fromAlpha2(&buf) catch .invalid;
+            const actual = map_insensitive.get(&buf) orelse .invalid;
+            if (expected != actual) {
+                std.log.err("key '{s}' expected {s} got {s}", .{ buf, @tagName(expected), @tagName(actual) });
+                return error.Invalid;
+            }
+        }
+    }
+
+    const show_timings = true;
+    if (show_timings)
+        try std.io.getStdOut().writer().writeAll("iters      map                         time(ns)\n--------\n");
 
     // bench
-    var buf: [2]u8 = undefined;
-    inline for (iters) |iterations| {
-        if (kinds.contains(.std_static_string_map)) {
-            const Map = std.StaticStringMap(Country);
-            const map = Map.initComptime(alpha2_codes);
-            var timer = try std.time.Timer.start();
-            for (0..iterations) |_| {
-                buf[0] = alphabet[random.intRangeLessThan(u8, 0, alphabet.len)];
-                buf[1] = alphabet[random.intRangeLessThan(u8, 0, alphabet.len)];
-                std.mem.doNotOptimizeAway(map.get(&buf));
-            }
+    if (kinds.contains(.std_static_string_map)) {
+        const Map = std.StaticStringMap(Country);
+        const map = Map.initComptime(alpha2_codes);
+        var timer = try std.time.Timer.start();
+        for (0..iterations) |_| {
+            buf[0] = alphabet[random.intRangeLessThan(u8, 0, alphabet.len)];
+            buf[1] = alphabet[random.intRangeLessThan(u8, 0, alphabet.len)];
+            std.mem.doNotOptimizeAway(map.get(&buf));
+        }
+        if (show_timings)
             outputResult(.std_static_string_map, iterations, timer.lap());
+    }
+
+    if (kinds.contains(.static_map)) {
+        const cap = alpha2_codes.len * 2;
+        const Map = static_map.StaticMap([]const u8, Country, cap, static_map.StringContext2);
+        const map = Map.initComptime(alpha2_codes, .{});
+        var timer = try std.time.Timer.start();
+        for (0..iterations) |_| {
+            buf[0] = alphabet[random.intRangeLessThan(u8, 0, alphabet.len)];
+            buf[1] = alphabet[random.intRangeLessThan(u8, 0, alphabet.len)];
+            std.mem.doNotOptimizeAway(map.get(&buf));
         }
+        if (show_timings)
+            outputResult(.static_map, iterations, timer.lap());
+    }
 
-        const cap = alpha2_codes.len * 3 / 2;
-
-        if (kinds.contains(.this_static_string_map)) {
-            const Map = static_map.StaticStringMap(Country, cap);
-            var map = Map.initComptime(alpha2_codes);
-            var timer = try std.time.Timer.start();
-            for (0..iterations) |_| {
-                buf[0] = alphabet[random.intRangeLessThan(u8, 0, alphabet.len)];
-                buf[1] = alphabet[random.intRangeLessThan(u8, 0, alphabet.len)];
-                std.mem.doNotOptimizeAway(map.get(&buf));
-            }
-            outputResult(.this_static_string_map, iterations, timer.lap());
+    if (kinds.contains(.static_map_case_insensitive)) {
+        var timer = try std.time.Timer.start();
+        for (0..iterations) |_| {
+            buf[0] = alphabet[random.intRangeLessThan(u8, 0, alphabet.len)];
+            buf[1] = alphabet[random.intRangeLessThan(u8, 0, alphabet.len)];
+            std.mem.doNotOptimizeAway(map_insensitive.get(&buf));
         }
+        if (show_timings)
+            outputResult(.static_map_case_insensitive, iterations, timer.lap());
+    }
 
-        if (kinds.contains(.this_static_string_map2)) {
-            const Map = static_map.StaticMap([]const u8, Country, cap, static_map.StringContext2);
-            const map = Map.initComptime(alpha2_codes);
-            var timer = try std.time.Timer.start();
-            for (0..iterations) |_| {
-                buf[0] = alphabet[random.intRangeLessThan(u8, 0, alphabet.len)];
-                buf[1] = alphabet[random.intRangeLessThan(u8, 0, alphabet.len)];
-                std.mem.doNotOptimizeAway(map.get(&buf));
-            }
-            outputResult(.this_static_string_map2, iterations, timer.lap());
+    if (kinds.contains(.squeek502_hand_rolled)) {
+        var timer = try std.time.Timer.start();
+        for (0..iterations) |_| {
+            buf[0] = alphabet[random.intRangeLessThan(u8, 0, alphabet.len)];
+            buf[1] = alphabet[random.intRangeLessThan(u8, 0, alphabet.len)];
+            std.mem.doNotOptimizeAway(Country.fromAlpha2(&buf));
         }
-
-        if (kinds.contains(.squeek502_hand_rolled)) {
-            var timer = try std.time.Timer.start();
-            for (0..iterations) |_| {
-                buf[0] = alphabet[random.intRangeLessThan(u8, 0, alphabet.len)];
-                buf[1] = alphabet[random.intRangeLessThan(u8, 0, alphabet.len)];
-                std.mem.doNotOptimizeAway(Country.fromAlpha2(&buf));
-            }
+        if (show_timings)
             outputResult(.squeek502_hand_rolled, iterations, timer.lap());
-        }
     }
 }
 
 fn outputResult(mode: MapKind, iterations: comptime_int, ns: u64) void {
     // std.io.getStdOut().writer().print("{s}\t{d: >4}\t{s}\t{}\n", .{ @tagName(builtin.mode), cap, @tagName(mode), ns }) catch unreachable;
-    std.io.getStdOut().writer().print("{d}\t{s}\t{}\n", .{ iterations, @tagName(mode), ns }) catch unreachable;
+    std.io.getStdOut().writer().print("{d: <10} {s: <[2]} {3}\n", .{ iterations, @tagName(mode), MapKind.len, ns }) catch unreachable;
 }
 
 // from https://gist.github.com/squeek502/bf453a6ebbbd9eef8ad16ca43df78f1a

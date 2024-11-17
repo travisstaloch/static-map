@@ -1,7 +1,8 @@
 const std = @import("std");
 const mem = std.mem;
-const static_map = @import("static-map");
 const builtin = @import("builtin");
+
+const static_map = @import("static-map");
 
 const MapKind = enum {
     std_static_string_map,
