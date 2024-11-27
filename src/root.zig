@@ -102,18 +102,25 @@ pub fn StaticMap(
             }
         }
 
+        inline fn getKv(comptime T: type, comptime kvs_list: anytype, comptime i: usize, comptime j: u8) T {
+            return switch (@typeInfo(@TypeOf(kvs_list[i]))) {
+                .@"struct", .array => kvs_list[i][j],
+                .pointer => |p| switch (p.size) {
+                    else => if (Key == p.child) kvs_list[i][j] else kvs_list[i],
+                },
+                else => kvs_list[i],
+            };
+        }
+
         pub inline fn initComptimeContext(comptime kvs_list: anytype, ctx: Context, comptime options: Options) Self {
             comptime {
                 @setEvalBranchQuota(options.eval_branch_quota);
                 var map = initContext(ctx);
                 for (0..kvs_list.len) |i| {
-                    const key = switch (@typeInfo(@TypeOf(kvs_list[i]))) {
-                        .@"struct" => kvs_list[i].@"0",
-                        else => kvs_list[i],
-                    };
+                    const key = getKv(Key, kvs_list, i, 0);
                     const gop = map.getOrPut(key);
-                    assert(gop.status == .new);
-                    if (!is_value_zero_sized) gop.value_ptr.* = kvs_list[i].@"1";
+                    if (gop.status != .new) @compileError(std.fmt.comptimePrint("kvs_list has duplicate key '{any}' at index {}", .{ key, i }));
+                    if (!is_value_zero_sized) gop.value_ptr.* = getKv(Value, kvs_list, i, 1);
                 }
                 return map;
             }

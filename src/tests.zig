@@ -172,23 +172,71 @@ test "usage" {
 
 test "initComptime - Map" {
     const Map = static_map.StaticStringMap(u8, 16);
-    const map_kvs = .{ .{ "foo", 1 }, .{ "bar", 2 } };
-    { // const
-        const map = Map.initComptime(map_kvs, .{});
-        try testing.expectEqual(2, map.count());
-        try testing.expectEqual(1, map.get("foo"));
-        try testing.expectEqual(2, map.get("bar"));
+    const map_kvs1 = .{ .{ "foo", 1 }, .{ "bar", 2 } };
+    inline for (.{map_kvs1}) |map_kvs| {
+        { // const
+            const map = Map.initComptime(map_kvs, .{});
+            try testing.expectEqual(2, map.count());
+            try testing.expectEqual(1, map.get("foo"));
+            try testing.expectEqual(2, map.get("bar"));
+        }
+        {
+            const map = Map.initComptimeContext(map_kvs, .{}, .{});
+            try testing.expectEqual(2, map.count());
+            try testing.expectEqual(1, map.get("foo"));
+            try testing.expectEqual(2, map.get("bar"));
+        }
+        { // var
+            var map = Map.initComptime(map_kvs, .{});
+            map.putNoClobber("baz", 1);
+            try testing.expectEqual(3, map.count());
+        }
     }
-    {
-        const map = Map.initComptimeContext(map_kvs, .{}, .{});
-        try testing.expectEqual(2, map.count());
-        try testing.expectEqual(1, map.get("foo"));
-        try testing.expectEqual(2, map.get("bar"));
+    // array kvs
+    const Map2 = static_map.AutoStaticMap(u32, u32, 16);
+    const map2_kvs1: []const [2]u32 = &.{ .{ 1, 2 }, .{ 3, 4 } };
+    inline for (.{map2_kvs1}) |map_kvs| {
+        { // const
+            const map = Map2.initComptime(map_kvs, .{});
+            try testing.expectEqual(2, map.count());
+            try testing.expectEqual(2, map.get(1));
+            try testing.expectEqual(4, map.get(3));
+        }
+        {
+            const map = Map2.initComptimeContext(map_kvs, .{}, .{});
+            try testing.expectEqual(2, map.count());
+            try testing.expectEqual(2, map.get(1));
+            try testing.expectEqual(4, map.get(3));
+        }
+        { // var
+            var map = Map2.initComptime(map_kvs, .{});
+            map.putNoClobber(4, 5);
+            try testing.expectEqual(3, map.count());
+        }
     }
-    { // var
-        var map = Map.initComptime(map_kvs, .{});
-        map.putNoClobber("baz", 1);
-        try testing.expectEqual(3, map.count());
+
+    // slice kvs
+    const Map3 = static_map.AutoStaticMap(u32, u32, 16);
+    const map3_kvs1: []const []const u32 = &.{ &.{ 1, 2 }, &.{ 3, 4 } };
+    inline for (.{map3_kvs1}) |map_kvs| {
+        {
+            const map = Map3.initComptime(map_kvs, .{});
+            try testing.expectEqual(2, map.count());
+            try testing.expectEqual(2, map.get(1));
+            try testing.expectEqual(4, map.get(3));
+        }
+    }
+
+    // non-string u8 slice kvs
+    const Map4 = static_map.AutoStaticMap(u8, u8, 16);
+    const map4_kvs1: []const []const u8 = &.{ &.{ 1, 2 }, &.{ 3, 4 } };
+    inline for (.{map4_kvs1}) |map_kvs| {
+        {
+            const map = Map4.initComptime(map_kvs, .{});
+            try testing.expectEqual(2, map.count());
+            try testing.expectEqual(2, map.get(1));
+            try testing.expectEqual(4, map.get(3));
+        }
     }
 }
 
