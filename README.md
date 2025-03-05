@@ -8,13 +8,13 @@ zig fetch --save git+https://github.com/travisstaloch/static-map
 ```
 ```zig
 // build.zig:
-const static_map = b.dependency("static-map", .{});
-exe.root_module.addImport("static-map", static_map.module("static-map"));
+const static_map = b.dependency("static_map", .{});
+exe.root_module.addImport("static_map", static_map.module("static_map"));
 ```
 ```zig
 // main.zig
 test "usage" {
-    // const static_map = @import("static-map");
+    // const static_map = @import("static_map");
     // init()
     const Map = static_map.StaticStringMap(u8, 16);
     var map = Map.init();

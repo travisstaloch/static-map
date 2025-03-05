@@ -1,7 +1,8 @@
 .{
-    .name = "static-map",
+    .name = .static_map,
     .version = "0.0.0",
     .dependencies = .{},
+    .fingerprint = 0x5936af7b02b557fb,
     .paths = .{
         "build.zig",
         "build.zig.zon",
