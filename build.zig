@@ -1,7 +1,7 @@
 const std = @import("std");
 
 pub fn build(b: *std.Build) void {
-    const mod = b.addModule("static-map", .{
+    const mod = b.addModule("static_map", .{
         .root_source_file = b.path("src/root.zig"),
     });
     const target = b.standardTargetOptions(.{});
