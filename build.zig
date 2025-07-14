@@ -9,9 +9,11 @@ pub fn build(b: *std.Build) void {
 
     const bench = b.addExecutable(.{
         .name = "bench",
-        .root_source_file = b.path(b.option([]const u8, "bench-file", "benchmark file") orelse "src/bench.zig"),
-        .target = target,
-        .optimize = optimize,
+        .root_module = b.createModule(.{
+            .root_source_file = b.path(b.option([]const u8, "bench-file", "benchmark file") orelse "src/bench.zig"),
+            .target = target,
+            .optimize = optimize,
+        }),
     });
     bench.root_module.addImport("static-map", mod);
     b.installArtifact(bench);
@@ -24,9 +26,11 @@ pub fn build(b: *std.Build) void {
     run_step.dependOn(&run_cmd.step);
 
     const tests = b.addTest(.{
-        .root_source_file = b.path("src/tests.zig"),
-        .target = target,
-        .optimize = optimize,
+        .root_module = b.createModule(.{
+            .root_source_file = b.path("src/tests.zig"),
+            .target = target,
+            .optimize = optimize,
+        }),
     });
     tests.root_module.addImport("static-map", mod);
     const run_tests = b.addRunArtifact(tests);
