@@ -164,8 +164,9 @@ test "usage" {
     // iterator()
     var iter = map.iterator();
     var count: u8 = 0;
+    var null_writer: std.Io.Writer.Discarding = .init(&.{});
     while (iter.next()) |kv| : (count += 1) {
-        try std.io.null_writer.print("{s}: {}", .{ kv.key, kv.value });
+        try null_writer.writer.print("{s}: {}", .{ kv.key, kv.value });
     }
     try testing.expectEqual(map.count(), count);
 }
