@@ -67,8 +67,13 @@ pub fn main() !void {
     }
 
     const show_timings = true;
+    const stdoutf = std.fs.File.stdout();
+    var stdout_buf: [1024]u8 = undefined;
+    var stdoutw = stdoutf.writer(&stdout_buf);
+    defer stdoutw.interface.flush() catch {};
+    const stdout = &stdoutw.interface;
     if (show_timings)
-        try std.io.getStdOut().writer().writeAll("iters      map                         time(ns)\n--------\n");
+        try stdout.writeAll("iters      map                         time(ns)\n--------\n");
 
     // bench
     if (kinds.contains(.std_static_string_map)) {
@@ -81,7 +86,7 @@ pub fn main() !void {
             std.mem.doNotOptimizeAway(map.get(&buf));
         }
         if (show_timings)
-            outputResult(.std_static_string_map, iterations, timer.lap());
+            outputResult(.std_static_string_map, iterations, timer.lap(), stdout);
     }
 
     if (kinds.contains(.static_map)) {
@@ -95,7 +100,7 @@ pub fn main() !void {
             std.mem.doNotOptimizeAway(map.get(&buf));
         }
         if (show_timings)
-            outputResult(.static_map, iterations, timer.lap());
+            outputResult(.static_map, iterations, timer.lap(), stdout);
     }
 
     if (kinds.contains(.static_map_case_insensitive)) {
@@ -106,7 +111,7 @@ pub fn main() !void {
             std.mem.doNotOptimizeAway(map_insensitive.get(&buf));
         }
         if (show_timings)
-            outputResult(.static_map_case_insensitive, iterations, timer.lap());
+            outputResult(.static_map_case_insensitive, iterations, timer.lap(), stdout);
     }
 
     if (kinds.contains(.squeek502_hand_rolled)) {
@@ -117,30 +122,25 @@ pub fn main() !void {
             std.mem.doNotOptimizeAway(Country.fromAlpha2(&buf));
         }
         if (show_timings)
-            outputResult(.squeek502_hand_rolled, iterations, timer.lap());
+            outputResult(.squeek502_hand_rolled, iterations, timer.lap(), stdout);
     }
 }
 
-fn outputResult(mode: MapKind, iterations: comptime_int, ns: u64) void {
-    // std.io.getStdOut().writer().print("{s}\t{d: >4}\t{s}\t{}\n", .{ @tagName(builtin.mode), cap, @tagName(mode), ns }) catch unreachable;
-    std.io.getStdOut().writer().print("{d: <10} {s: <[2]} {3}\n", .{ iterations, @tagName(mode), MapKind.len, ns }) catch unreachable;
+fn outputResult(mode: MapKind, iterations: comptime_int, ns: u64, stdout: *std.Io.Writer) void {
+    // stdout.print("{s}\t{d: >4}\t{s}\t{}\n", .{ @tagName(builtin.mode), cap, @tagName(mode), ns }) catch unreachable;
+    stdout.print("{d: <10} {s: <[2]} {3}\n", .{ iterations, @tagName(mode), MapKind.len, ns }) catch unreachable;
 }
 
 // from https://gist.github.com/squeek502/bf453a6ebbbd9eef8ad16ca43df78f1a
 
 pub fn alpha2_to_lookup_id(alpha2_code: []const u8) error{InvalidAlpha2Code}!usize {
     if (alpha2_code.len != 2) return error.InvalidAlpha2Code;
-    const a = try alpha2_digit(alpha2_code[0]);
-    const b = try alpha2_digit(alpha2_code[1]);
-    return @as(u16, a) * 26 + b;
-}
+    if (!std.ascii.isAlphabetic(alpha2_code[0]) or
+        !std.ascii.isAlphabetic(alpha2_code[1])) return error.InvalidAlpha2Code;
 
-fn alpha2_digit(c: u8) error{InvalidAlpha2Code}!u8 {
-    return switch (c) {
-        'a'...'z' => c - 'a',
-        'A'...'Z' => c - 'A',
-        else => return error.InvalidAlpha2Code,
-    };
+    const a = (alpha2_code[0] | 32) - 'a';
+    const b = (alpha2_code[1] | 32) - 'a';
+    return @as(u16, a) * 26 + b;
 }
 
 const alpha2_lookup = lookup: {
@@ -153,6 +153,7 @@ const alpha2_lookup = lookup: {
         const alpha_code = alpha_code_mapping.@"0";
         const country = alpha_code_mapping.@"1";
         const lookup_id = alpha2_to_lookup_id(alpha_code) catch unreachable;
+        if (lookup_id > lookup.len) @compileError("alpha code '" ++ alpha_code ++ "'");
         lookup[lookup_id] = country;
     }
     break :lookup lookup;
